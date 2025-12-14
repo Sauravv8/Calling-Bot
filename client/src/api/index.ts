@@ -1,5 +1,5 @@
 export const api = {
-    baseUrl: 'http://localhost:5000', // Update if deployed
+    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:5000',
 
     async request(endpoint: string, options: RequestInit = {}) {
         const url = `${this.baseUrl}${endpoint}`;

@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: cold-calling-server
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+    fromGroup: server-settings
+    autoDeploy: false
+
+envVarGroups:
+  - name: server-settings
+    envVars:
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_API_KEY
+        sync: false
+      - key: TWILIO_API_SECRET
+        sync: false
+      - key: TWILIO_TWIML_APP_SID
+        sync: false
+      - key: TWILIO_CALLER_ID
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_AGENT_ID
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
