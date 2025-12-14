@@ -4,6 +4,7 @@ services:
     runtime: node
     region: oregon
     plan: free
+    root: server
     buildCommand: npm install
     startCommand: node index.js
     envVars:
