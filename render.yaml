@@ -2,16 +2,15 @@ services:
   - type: web
     name: cold-calling-server
     runtime: node
-    region: oregon
     plan: free
     root: server
-    buildCommand: npm install
-    startCommand: node index.js
+    buildCommand: "npm install"
+    startCommand: "node index.js"
     envVars:
       - key: PORT
-        value: 10000
+        value: "10000"
       - key: NODE_ENV
-        value: production
+        value: "production"
     fromGroup: server-settings
     autoDeploy: false
 
