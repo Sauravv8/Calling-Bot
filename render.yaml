@@ -3,15 +3,14 @@ services:
     name: cold-calling-server
     runtime: node
     plan: free
-    root: server
-    buildCommand: "npm install"
-    startCommand: "node index.js"
+    buildCommand: "cd server && npm install"
+    startCommand: "cd server && node index.js"
     envVars:
       - key: PORT
         value: "10000"
       - key: NODE_ENV
         value: "production"
-    fromGroup: server-settings
+      - fromGroup: server-settings
     autoDeploy: false
 
 envVarGroups:
