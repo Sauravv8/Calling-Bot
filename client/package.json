@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@twilio/voice-sdk": "^2.17.0",
     "autoprefixer": "^10.4.22",
     "axios": "^1.13.2",
     "lucide-react": "^0.559.0",
@@ -19,7 +18,6 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwindcss": "^4.1.17",
-    "twilio-client": "^1.15.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
