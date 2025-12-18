@@ -180,6 +180,13 @@ wss.on('connection', (ws, req) => {
   // PCC: Flag to track if ElevenLabs is ready to receive audio
   let isElevenLabsReady = false;
 
+  ws.on('error', (error) => {
+    console.error('[Twilio] WebSocket Error:', error);
+    if (elevenLabsWs && elevenLabsWs.readyState === WebSocket.OPEN) {
+      elevenLabsWs.close();
+    }
+  });
+
   // Helper to connect to ElevenLabs
   const connectElevenLabs = () => {
     // PCC: Use userSettings so updates from UI are reflected immediately
@@ -227,6 +234,10 @@ wss.on('connection', (ws, req) => {
 
     elevenLabsWs.on('close', (code, reason) => {
       console.log(`[ElevenLabs] Disconnected. Code: ${code}, Reason: ${reason}`);
+    });
+
+    elevenLabsWs.on('error', (error) => {
+      console.error('[ElevenLabs] WebSocket Error:', error);
     });
 
     elevenLabsWs.on('message', (data) => {
