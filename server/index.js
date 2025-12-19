@@ -35,6 +35,14 @@ let userSettings = {
   systemPrompt: process.env.SYSTEM_PROMPT || "You are a helpful assistant found in a cold calling context. Be professional and concise."
 };
 
+// PCC: Sanitize BASE_URL if it contains multiple values (common configuration error)
+if (userSettings.baseUrl && userSettings.baseUrl.includes(',')) {
+  console.warn(`[Config Warning] BASE_URL contains multiple values ("\${userSettings.baseUrl}"). Using the last one.`);
+  const urls = userSettings.baseUrl.split(',');
+  userSettings.baseUrl = urls[urls.length - 1].trim();
+  console.log(`[Config Correction] Active BASE_URL set to: \${userSettings.baseUrl}`);
+}
+
 // Database Connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

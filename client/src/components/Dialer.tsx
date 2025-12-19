@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, Delete, RotateCcw } from 'lucide-react';
+import { Phone, Delete } from 'lucide-react';
 
 interface DialerProps {
     onCall: (number: string) => void;
@@ -41,101 +41,76 @@ const Dialer: React.FC<DialerProps> = ({ onCall }) => {
     const pads = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 
     return (
-        <div className="w-full max-w-sm">
-            {/* Display Screen */}
-            <div className="mb-8 relative">
-                <div className="panel p-8">
-                    <div className="text-center mb-4">
-                        <p className="text-slate-400 text-sm font-medium">Dial Phone Number</p>
-                    </div>
-
-                    <div className="flex gap-2 mb-6">
+        <div className="w-full max-w-sm flex flex-col items-center">
+            {/* Display Screen using standard rounded styling */}
+            <div className="mb-6 w-full bg-slate-900/50 p-6 rounded-3xl border border-slate-800/50 backdrop-blur-sm shadow-inner">
+                <div className="text-center mb-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
                         <select
                             value={countryCode}
                             onChange={(e) => setCountryCode(e.target.value)}
-                            className="bg-slate-800 text-white rounded-lg px-2 py-1 outline-none border border-slate-700 text-xl font-mono appearance-none text-center cursor-pointer hover:bg-slate-700 transition"
-                            style={{ minWidth: '80px' }}
+                            className="bg-transparent text-slate-400 font-medium text-xl outline-none cursor-pointer hover:text-white transition-colors appearance-none text-right"
+                            style={{ direction: 'rtl' }}
                         >
                             {countryCodes.map(c => (
-                                <option key={c.code} value={c.code}>
-                                    {c.country} ({c.code})
+                                <option key={c.code} value={c.code} className="bg-slate-900 text-left">
+                                    {c.code}
                                 </option>
                             ))}
                         </select>
-                        <input
-                            type="text"
-                            value={number}
-                            readOnly
-                            className="flex-1 text-4xl text-right font-mono font-bold text-white tracking-widest bg-transparent placeholder-slate-600 focus:outline-none"
-                            placeholder="Enter number"
-                        />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-500">
-                            {number.length > 0 ? `${number.length} digits` : 'Ready'}
+                        <span className="text-4xl font-bold text-white tracking-widest font-mono min-h-[48px] flex items-center">
+                            {number || <span className="text-slate-700 text-3xl">...</span>}
                         </span>
-                        {number && (
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleDelete}
-                                    className="p-3 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-400 hover:text-red-300 transition-all duration-200 hover:scale-110"
-                                    title="Delete last digit"
-                                >
-                                    <Delete size={18} />
-                                </button>
-                                <button
-                                    onClick={handleClear}
-                                    className="p-3 rounded-lg bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 hover:text-orange-300 transition-all duration-200 hover:scale-110"
-                                    title="Clear all"
-                                >
-                                    <RotateCcw size={18} />
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
-            </div>
 
-            {/* Keypad */}
-            <div className="mb-8">
-                <div className="grid grid-cols-3 gap-3 mb-6 panel p-6">
-                    {pads.map(pad => (
-                        <button
-                            key={pad}
-                            onClick={() => handleNumClick(pad)}
-                            className="aspect-square rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50
-                             text-3xl font-bold text-white hover:text-blue-300 transition-all active:scale-95 flex items-center justify-center
-                             cursor-pointer"
-                        >
-                            {pad}
-                        </button>
-                    ))}
+                {/* Control Actions Row (Clear/Delete) */}
+                <div className="flex justify-between items-center px-4">
+                    <button
+                        onClick={handleClear}
+                        disabled={!number}
+                        className={`text-xs font-bold uppercase tracking-wider transition-colors ${number ? 'text-slate-500 hover:text-white cursor-pointer' : 'text-slate-800 cursor-default'}`}
+                    >
+                        Clear
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        disabled={!number}
+                        className={`transition-colors ${number ? 'text-slate-500 hover:text-red-400 cursor-pointer' : 'text-slate-800 cursor-default'}`}
+                    >
+                        <Delete size={22} />
+                    </button>
                 </div>
             </div>
 
-            {/* Call Button */}
+            {/* Keypad: Explicit Block Design */}
+            <div className="grid grid-cols-3 gap-4 mb-8 w-full">
+                {pads.map(pad => (
+                    <button
+                        key={pad}
+                        onClick={() => handleNumClick(pad)}
+                        className="w-full aspect-square rounded-2xl bg-slate-800 hover:bg-slate-700 border-b-4 border-slate-950 hover:border-slate-800
+                         active:border-b-0 active:translate-y-1
+                         text-3xl font-bold text-white transition-all flex items-center justify-center
+                         cursor-pointer shadow-lg group relative"
+                    >
+                        <span className="relative z-10">{pad}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* Call Button - Full Width Block */}
             <button
                 onClick={handleCall}
                 disabled={!number.trim()}
-                className={`w-full h-16 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all duration-300 transform ${number.trim()
-                    ? 'bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 hover:from-green-400 hover:via-green-500 hover:to-emerald-500 text-white shadow-lg shadow-green-500/30 hover:shadow-green-500/50 active:scale-95 cursor-pointer'
-                    : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-500 cursor-not-allowed'
+                className={`w-full h-16 rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all duration-200 transform border-b-4 active:border-b-0 active:translate-y-1 ${number.trim()
+                    ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-800 text-white cursor-pointer'
+                    : 'bg-slate-800 text-slate-600 border-slate-900 cursor-not-allowed'
                     }`}
             >
-                <Phone size={24} className="font-bold" />
-                <span>{number.trim() ? 'Call Now' : 'Enter Number'}</span>
+                <Phone size={28} fill="currentColor" />
+                <span className="font-bold text-xl">Call</span>
             </button>
-
-            {/* Info Text */}
-            <p className="text-slate-500 text-center text-sm mt-6">
-                {number ? (
-                    <span>
-                        Ready to call <span className="text-blue-300 font-semibold">{countryCode} {number}</span>
-                    </span>
-                ) : (
-                    'Tap numbers to dial'
-                )}
-            </p>
         </div>
     );
 };
