@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X, Check, AlertCircle, CloudUpload } from 'lucide-react';
+import { X, Check, AlertCircle, CloudUpload, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../api';
 
@@ -18,167 +18,284 @@ interface ExcelUploadProps {
 }
 
 const ExcelUpload: React.FC<ExcelUploadProps> = ({ onLeadsLoaded }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [leadsToSync, setLeadsToSync] = useState<UploadedLead[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [file,         setFile]         = useState<File | null>(null);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [success,      setSuccess]      = useState(false);
+  const [leadsToSync,  setLeadsToSync]  = useState<UploadedLead[]>([]);
+  const [isSyncing,    setIsSyncing]    = useState(false);
+  const [isDragging,   setIsDragging]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-
+  const processFile = async (selectedFile: File) => {
     setFile(selectedFile);
     setError(null);
     setSuccess(false);
     setLoading(true);
 
-    try {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const workbook = XLSX.read(event.target?.result as ArrayBuffer);
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const workbook  = XLSX.read(event.target?.result as ArrayBuffer);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData  = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-          if (!jsonData || jsonData.length === 0) {
-            setError('No data found in the Excel file');
-            setLoading(false);
-            return;
-          }
-
-          // Map Excel columns to our Lead interface
-          const leads: UploadedLead[] = jsonData.map((row, index) => ({
-            id: `lead-${Date.now()}-${index}`,
-            name: row['Name'] || row['name'] || row['CONTACT_NAME'] || `Lead ${index + 1}`,
-            number: row['Phone'] || row['phone'] || row['PHONE_NUMBER'] || '',
-            email: row['Email'] || row['email'] || row['EMAIL'] || undefined,
-            company: row['Company'] || row['company'] || row['COMPANY'] || undefined,
-            status: 'New' as const,
-            score: Math.floor(Math.random() * 20),
-          })).filter(lead => lead.number); // Filter out entries without phone numbers
-
-          if (leads.length === 0) {
-            setError('No valid phone numbers found in the Excel file');
-            setLoading(false);
-            return;
-          }
-
-          setLeadsToSync(leads);
-          setSuccess(true);
-          // Don't auto-load, let user choose to sync
-          // onLeadsLoaded(leads); 
-
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
-        } catch (err) {
-          setError('Error parsing Excel file. Please ensure it has columns: Name, Phone');
-          console.error(err);
+        if (!jsonData || jsonData.length === 0) {
+          setError('No data found in the file');
+          setLoading(false);
+          return;
         }
-        setLoading(false);
-      };
-      reader.readAsArrayBuffer(selectedFile);
-    } catch (err) {
-      setError('Error reading file');
+
+        const leads: UploadedLead[] = jsonData.map((row, index) => ({
+          id:      `lead-${Date.now()}-${index}`,
+          name:    row['Name'] || row['name'] || row['CONTACT_NAME'] || `Lead ${index + 1}`,
+          number:  row['Phone'] || row['phone'] || row['PHONE_NUMBER'] || '',
+          email:   row['Email'] || row['email'] || row['EMAIL'] || undefined,
+          company: row['Company'] || row['company'] || row['COMPANY'] || undefined,
+          status:  'New' as const,
+          score:   Math.floor(Math.random() * 20),
+        })).filter(lead => lead.number);
+
+        if (leads.length === 0) {
+          setError('No valid phone numbers found. Column should be named "Phone".');
+          setLoading(false);
+          return;
+        }
+
+        setLeadsToSync(leads);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch (err) {
+        setError('Error parsing file. Ensure columns are: Name, Phone (Email, Company optional)');
+      }
       setLoading(false);
-    }
+    };
+    reader.readAsArrayBuffer(selectedFile);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) processFile(selectedFile);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) processFile(droppedFile);
   };
 
   const handleSync = async () => {
     if (leadsToSync.length === 0) return;
-
     setIsSyncing(true);
     try {
-      // Send to local app state
       onLeadsLoaded(leadsToSync);
-
-      // Send to backend
       await api.post('/leads/bulk', { leads: leadsToSync });
-
       setSuccess(true);
       setFile(null);
       setLeadsToSync([]);
-      alert(`Successfully synced ${leadsToSync.length} leads to server!`);
-    } catch (error) {
-      console.error('Failed to sync leads:', error);
-      setError('Failed to upload leads to server.');
+    } catch {
+      setError('Failed to upload leads to server. Leads added locally.');
+      setSuccess(true);
+      setFile(null);
+      setLeadsToSync([]);
     } finally {
       setIsSyncing(false);
     }
   };
 
   return (
-    <div className="w-full">
-      <div className="card">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <Upload size={20} className="text-primary" />
-          Import Leads from Excel
-        </h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-        <div
-          onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed border-primary/30 hover:border-primary/50 rounded-xl p-8 text-center cursor-pointer transition-all hover:bg-primary/5"
-        >
-          <Upload size={40} className="mx-auto mb-3 text-primary/60" />
-          <p className="text-text font-medium mb-1">Click to upload or drag and drop</p>
-          <p className="text-text-muted text-sm">Supported formats: Excel (.xlsx, .xls, .csv)</p>
-          <p className="text-text-muted text-xs mt-2">Columns needed: Name, Phone (Email and Company optional)</p>
+      {/* Upload Card */}
+      <div className="section-card">
+        <div className="section-header">
+          <h2 className="section-title">Upload File</h2>
+          <span className="badge badge-gray">Excel / CSV</span>
         </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-
-        {file && (
-          <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg flex items-center justify-between">
-            <span className="text-text text-sm">{file.name}</span>
-            {loading && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+        <div className="section-body">
+          {/* Drop Zone */}
+          <div
+            id="upload-dropzone"
+            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              border: `2px dashed ${isDragging ? 'var(--accent-primary)' : 'var(--purple-200)'}`,
+              borderRadius: 'var(--radius-xl)',
+              padding: '48px 24px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              background: isDragging ? 'var(--accent-primary-light)' : 'var(--bg-page)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div style={{
+              width: '60px', height: '60px', borderRadius: 'var(--radius-xl)',
+              background: 'var(--accent-primary-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}>
+              <FileSpreadsheet size={28} style={{ color: 'var(--accent-primary)' }} />
+            </div>
+            <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '15px', marginBottom: '4px', fontFamily: 'var(--font-display)' }}>
+              {isDragging ? 'Drop your file here!' : 'Click to upload or drag & drop'}
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+              Excel (.xlsx, .xls) or CSV files
+            </p>
+            <p style={{ color: 'var(--text-placeholder)', fontSize: '12px', marginTop: '8px' }}>
+              Required columns: <strong style={{ color: 'var(--accent-primary)' }}>Name</strong>, <strong style={{ color: 'var(--accent-primary)' }}>Phone</strong>
+              &nbsp;&nbsp;|&nbsp;&nbsp;Optional: Email, Company
+            </p>
           </div>
-        )}
 
-        {leadsToSync.length > 0 && (
-          <div className="mt-4 p-4 bg-slate-800/50 rounded-lg">
-            <p className="text-sm text-text-muted mb-3">Found {leadsToSync.length} leads in file.</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+            id="file-input"
+          />
+
+          {/* File Selected */}
+          {file && (
+            <div style={{
+              marginTop: '16px', padding: '12px 16px',
+              background: 'var(--accent-primary-light)', borderRadius: 'var(--radius-md)',
+              border: '1.5px solid var(--purple-200)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileSpreadsheet size={18} style={{ color: 'var(--accent-primary)' }} />
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-primary)' }}>{file.name}</span>
+              </div>
+              {loading && (
+                <div style={{
+                  width: '16px', height: '16px', borderRadius: '50%',
+                  border: '2px solid var(--purple-200)', borderTopColor: 'var(--accent-primary)',
+                  animation: 'spin 0.9s linear infinite',
+                }} />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Preview & Sync */}
+      {leadsToSync.length > 0 && (
+        <div className="section-card animate-in">
+          <div className="section-header">
+            <h2 className="section-title">Ready to Import</h2>
+            <span className="badge badge-success">{leadsToSync.length} leads found</span>
+          </div>
+          <div className="section-body">
+            {/* Preview Table */}
+            <div style={{ overflowX: 'auto', marginBottom: '16px', maxHeight: '240px', overflowY: 'auto' }} className="custom-scrollbar">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Company</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leadsToSync.slice(0, 10).map(lead => (
+                    <tr key={lead.id}>
+                      <td style={{ fontWeight: 600 }}>{lead.name}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{lead.number}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{lead.email || '—'}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{lead.company || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {leadsToSync.length > 10 && (
+                <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', padding: '8px' }}>
+                  ...and {leadsToSync.length - 10} more leads
+                </p>
+              )}
+            </div>
+
             <button
+              id="sync-leads-btn"
               onClick={handleSync}
               disabled={isSyncing}
-              className="w-full btn-primary flex items-center justify-center gap-2"
+              className="btn btn-primary"
+              style={{ width: '100%' }}
             >
               {isSyncing ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : <CloudUpload size={18} />}
-              {isSyncing ? 'Syncing...' : 'Upload to Server & Dashboard'}
+                <>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', animation: 'spin 0.9s linear infinite' }} />
+                  Importing...
+                </>
+              ) : (
+                <><CloudUpload size={16} />Import {leadsToSync.length} Leads to Dashboard</>
+              )}
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {error && (
-          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
-            <AlertCircle size={18} className="text-red-400 flex-shrink-0" />
-            <span className="text-red-400 text-sm">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto"
-            >
-              <X size={16} className="hover:text-red-300" />
-            </button>
-          </div>
-        )}
+      {/* Error */}
+      {error && (
+        <div className="alert alert-error animate-in">
+          <AlertCircle size={15} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>{error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
-        {success && leadsToSync.length === 0 && (
-          <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-3">
-            <Check size={18} className="text-green-400" />
-            <span className="text-green-400 text-sm">Leads imported successfully!</span>
+      {/* Success */}
+      {success && leadsToSync.length === 0 && (
+        <div className="alert alert-success animate-in">
+          <Check size={15} style={{ flexShrink: 0 }} />
+          <span>Leads imported successfully! Check your Call Queue in the Dialer.</span>
+        </div>
+      )}
+
+      {/* Format Guide */}
+      <div className="section-card">
+        <div className="section-header">
+          <h2 className="section-title">File Format Guide</h2>
+        </div>
+        <div className="section-body">
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Name <span style={{ color: '#dc2626', fontWeight: 700 }}>*</span></th>
+                  <th>Phone <span style={{ color: '#dc2626', fontWeight: 700 }}>*</span></th>
+                  <th>Email</th>
+                  <th>Company</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ fontWeight: 600 }}>John Doe</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>+15551234567</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>john@example.com</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Acme Corp</td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 600 }}>Jane Smith</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>+15559876543</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        )}
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>
+            <span style={{ color: '#dc2626', fontWeight: 700 }}>*</span> Required columns
+          </p>
+        </div>
       </div>
     </div>
   );

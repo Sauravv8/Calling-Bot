@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Save, AlertCircle, Check } from 'lucide-react';
+import {
+  Settings as SettingsIcon, Save, AlertCircle, Check, Eye, EyeOff, X, Loader2
+} from 'lucide-react';
 import { api } from '../api';
 
 interface SettingsData {
@@ -11,6 +13,8 @@ interface SettingsData {
   twilioApiSecret: string;
   baseUrl: string;
   geminiApiKey: string;
+  elevenLabsApiKey: string;
+  elevenLabsAgentId: string;
   systemPrompt: string;
 }
 
@@ -23,213 +27,308 @@ const Settings: React.FC<SettingsProps> = ({ onClose, onSave }) => {
   const [settings, setSettings] = useState<SettingsData>(() => {
     const saved = localStorage.getItem('callSettings');
     return saved ? JSON.parse(saved) : {
-      twilioAccountSid: '',
-      twilioAuthToken: '',
-      twilioPhoneNumber: '',
-      twilioTwimlAppSid: '',
-      twilioApiKey: '',
-      twilioApiSecret: '',
-      baseUrl: '',
-      geminiApiKey: '',
+      twilioAccountSid: '', twilioAuthToken: '', twilioPhoneNumber: '',
+      twilioTwimlAppSid: '', twilioApiKey: '', twilioApiSecret: '',
+      baseUrl: '', geminiApiKey: '',
+      elevenLabsApiKey: '', elevenLabsAgentId: '',
       systemPrompt: 'You are a professional sales agent. Introduce yourself and the product, then ask for their interest. Be respectful and brief.',
     };
   });
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<'twilio' | 'elevenlabs' | 'ai'>('twilio');
 
   const handleChange = (field: keyof SettingsData, value: string) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
+  const toggleSecret = (key: string) => setShowSecrets(prev => ({ ...prev, [key]: !prev[key] }));
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Save to LocalStorage
       localStorage.setItem('callSettings', JSON.stringify(settings));
-
-      // Sync to Server (Backend needs these to function)
-      // Note: In a real app, send these securely.
       await api.post('/settings', settings);
-
       onSave(settings);
       setMessage({ type: 'success', text: 'Settings saved and synced to server!' });
       setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
-      console.error('Failed to sync settings:', error);
+    } catch {
       setMessage({ type: 'error', text: 'Saved locally, but failed to sync to server.' });
     } finally {
       setIsSaving(false);
     }
   };
 
+  const SecretInput = ({ field, placeholder }: { field: keyof SettingsData; placeholder: string }) => (
+    <div style={{ position: 'relative' }}>
+      <input
+        type={showSecrets[field] ? 'text' : 'password'}
+        value={settings[field] as string}
+        onChange={e => handleChange(field, e.target.value)}
+        placeholder={placeholder}
+        className="input"
+        style={{ paddingRight: '40px' }}
+      />
+      <button
+        type="button"
+        onClick={() => toggleSecret(field)}
+        style={{
+          position: 'absolute', right: '10px', top: '50%',
+          transform: 'translateY(-50%)', background: 'none',
+          border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+        }}
+      >
+        {showSecrets[field] ? <EyeOff size={15} /> : <Eye size={15} />}
+      </button>
+    </div>
+  );
+
+  const tabs = [
+    { id: 'twilio' as const,     label: 'Twilio',       emoji: '📞' },
+    { id: 'elevenlabs' as const, label: 'ElevenLabs',   emoji: '🎙️' },
+    { id: 'ai' as const,         label: 'AI Prompt',    emoji: '✨' },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="panel w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800">
-        <div className="flex items-center justify-between mb-6 sticky top-0 bg-slate-900 p-6 border-b border-slate-800 z-10">
-          <div className="flex items-center gap-3">
-            <SettingsIcon size={24} className="text-blue-500" />
-            <h2 className="text-2xl font-bold text-white">Configuration</h2>
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: 'rgba(30, 27, 75, 0.45)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 100, padding: '16px',
+    }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="animate-scale" style={{
+        background: 'white',
+        borderRadius: 'var(--radius-2xl)',
+        boxShadow: 'var(--shadow-xl)',
+        width: '100%', maxWidth: '560px',
+        maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+        border: '1.5px solid var(--border-card)',
+      }}>
+
+        {/* Modal Header */}
+        <div style={{
+          padding: '20px 24px',
+          borderBottom: '1.5px solid var(--border-card)',
+          display: 'flex', alignItems: 'center', gap: '12px',
+        }}>
+          <div style={{
+            width: '38px', height: '38px', borderRadius: 'var(--radius-md)',
+            background: 'var(--accent-primary-light)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <SettingsIcon size={18} style={{ color: 'var(--accent-primary)' }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+              Configuration
+            </h2>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Manage API keys and server settings</p>
           </div>
           <button
+            id="settings-close"
             onClick={onClose}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white"
+            style={{
+              width: '32px', height: '32px', borderRadius: 'var(--radius-md)',
+              border: '1.5px solid var(--border-card)', background: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'var(--text-muted)',
+            }}
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Twilio Settings */}
-          <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold mb-4 text-blue-400">Twilio Configuration</h3>
+        {/* Tabs */}
+        <div style={{
+          display: 'flex', gap: '4px', padding: '12px 24px',
+          borderBottom: '1.5px solid var(--border-card)',
+          background: 'var(--bg-page)',
+        }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                padding: '7px 16px', borderRadius: 'var(--radius-md)',
+                border: '1.5px solid',
+                fontSize: '12.5px', fontWeight: 600,
+                cursor: 'pointer', transition: 'all 0.15s',
+                background: activeTab === tab.id ? 'var(--accent-primary)' : 'white',
+                borderColor: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--border-card)',
+                color: activeTab === tab.id ? 'white' : 'var(--text-secondary)',
+              }}
+            >
+              {tab.emoji} {tab.label}
+            </button>
+          ))}
+        </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        {/* Form Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }} className="custom-scrollbar">
+
+          {/* ---- TWILIO TAB ---- */}
+          {activeTab === 'twilio' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label className="input-label">Account SID</label>
-                  <input
-                    type="password"
-                    value={settings.twilioAccountSid}
-                    onChange={(e) => handleChange('twilioAccountSid', e.target.value)}
-                    placeholder="AC..."
-                    className="input w-full"
-                  />
+                  <SecretInput field="twilioAccountSid" placeholder="AC..." />
                 </div>
                 <div>
                   <label className="input-label">Auth Token</label>
-                  <input
-                    type="password"
-                    value={settings.twilioAuthToken}
-                    onChange={(e) => handleChange('twilioAuthToken', e.target.value)}
-                    placeholder="Auth Token"
-                    className="input w-full"
-                  />
+                  <SecretInput field="twilioAuthToken" placeholder="Auth Token" />
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
                   <label className="input-label">API Key (SID)</label>
-                  <input
-                    type="password"
-                    value={settings.twilioApiKey}
-                    onChange={(e) => handleChange('twilioApiKey', e.target.value)}
-                    placeholder="SK..."
-                    className="input w-full"
-                  />
+                  <SecretInput field="twilioApiKey" placeholder="SK..." />
                 </div>
                 <div>
                   <label className="input-label">API Secret</label>
-                  <input
-                    type="password"
-                    value={settings.twilioApiSecret}
-                    onChange={(e) => handleChange('twilioApiSecret', e.target.value)}
-                    placeholder="Secret"
-                    className="input w-full"
-                  />
+                  <SecretInput field="twilioApiSecret" placeholder="Secret" />
                 </div>
               </div>
-
               <div>
                 <label className="input-label">TwiML App SID</label>
                 <input
-                  type="text"
-                  value={settings.twilioTwimlAppSid}
-                  onChange={(e) => handleChange('twilioTwimlAppSid', e.target.value)}
+                  type="text" value={settings.twilioTwimlAppSid}
+                  onChange={e => handleChange('twilioTwimlAppSid', e.target.value)}
                   placeholder="AP..."
-                  className="input w-full"
+                  className="input"
                 />
-                <p className="text-xs text-text-muted mt-1">Found in Twilio Console &gt; Voice &gt; TwiML Apps</p>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Found in Twilio Console › Voice › TwiML Apps
+                </p>
               </div>
-
               <div>
-                <label className="input-label">Phone Number</label>
+                <label className="input-label">Phone Number (Caller ID)</label>
                 <input
-                  type="tel"
-                  value={settings.twilioPhoneNumber}
-                  onChange={(e) => handleChange('twilioPhoneNumber', e.target.value)}
+                  type="tel" value={settings.twilioPhoneNumber}
+                  onChange={e => handleChange('twilioPhoneNumber', e.target.value)}
                   placeholder="+1234567890"
-                  className="input w-full"
+                  className="input"
                 />
               </div>
-
               <div>
                 <label className="input-label">Public Server URL (ngrok)</label>
                 <input
-                  type="url"
-                  value={settings.baseUrl}
-                  onChange={(e) => handleChange('baseUrl', e.target.value)}
-                  placeholder="https://....ngrok-free.app"
-                  className="input w-full"
+                  type="url" value={settings.baseUrl}
+                  onChange={e => handleChange('baseUrl', e.target.value)}
+                  placeholder="https://xxxx.ngrok-free.app"
+                  className="input"
                 />
-                <p className="text-xs text-text-muted mt-1">Required for Twilio to send call events back to your server</p>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Required for Twilio webhooks to reach your local server
+                </p>
               </div>
-            </div>
-          </div>
-
-          {/* Gemini Settings */}
-          <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-6">
-            <h3 className="text-lg font-bold mb-4 text-blue-400">Gemini API Configuration</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="input-label">API Key</label>
-                <input
-                  type="password"
-                  value={settings.geminiApiKey}
-                  onChange={(e) => handleChange('geminiApiKey', e.target.value)}
-                  placeholder="Your Google Gemini API Key"
-                  className="input w-full"
-                />
-              </div>
-
-              <div>
-                <label className="input-label">Custom Call Prompt</label>
-                <textarea
-                  value={settings.systemPrompt}
-                  onChange={(e) => handleChange('systemPrompt', e.target.value)}
-                  placeholder="Enter your custom prompt for the calling agent..."
-                  className="input w-full h-32 resize-none font-mono text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Message */}
-          {message && (
-            <div className={`p-4 rounded-lg flex items-center gap-3 ${message.type === 'success'
-              ? 'bg-green-500/10 border border-green-500/30'
-              : 'bg-red-500/10 border border-red-500/30'
-              }`}>
-              {message.type === 'success' ? (
-                <Check size={18} className="text-green-400" />
-              ) : (
-                <AlertCircle size={18} className="text-red-400" />
-              )}
-              <span className={message.type === 'success' ? 'text-green-400' : 'text-red-400'}>
-                {message.text}
-              </span>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-slate-800">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <Save size={18} />
-              {isSaving ? 'Saving...' : 'Save & Sync Settings'}
-            </button>
-            <button
-              onClick={onClose}
-              className="btn-secondary flex-1"
-            >
-              Close
-            </button>
+          {/* ---- ELEVENLABS TAB ---- */}
+          {activeTab === 'elevenlabs' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{
+                padding: '14px 16px', borderRadius: 'var(--radius-lg)',
+                background: 'var(--accent-primary-light)',
+                border: '1.5px solid var(--purple-200)',
+                fontSize: '12.5px', color: 'var(--accent-primary)', fontWeight: 500,
+              }}>
+                🎙️ These credentials are used to connect your calls to ElevenLabs Conversational AI and to update agent prompts from the <strong>AI Prompt</strong> page.
+              </div>
+              <div>
+                <label className="input-label">ElevenLabs API Key</label>
+                <SecretInput field="elevenLabsApiKey" placeholder="Your ElevenLabs API Key" />
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Found in ElevenLabs Dashboard › My Account › API Keys
+                </p>
+              </div>
+              <div>
+                <label className="input-label">Agent ID</label>
+                <input
+                  type="text" value={settings.elevenLabsAgentId}
+                  onChange={e => handleChange('elevenLabsAgentId', e.target.value)}
+                  placeholder="Your ElevenLabs Agent ID"
+                  className="input"
+                />
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Found in ElevenLabs Dashboard › Conversational AI › Your Agent
+                </p>
+              </div>
+              <div>
+                <label className="input-label">Gemini API Key (optional)</label>
+                <SecretInput field="geminiApiKey" placeholder="Your Google Gemini API Key" />
+              </div>
+            </div>
+          )}
+
+          {/* ---- AI PROMPT TAB ---- */}
+          {activeTab === 'ai' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{
+                padding: '14px 16px', borderRadius: 'var(--radius-lg)',
+                background: '#fffbeb', border: '1.5px solid #fde68a',
+                fontSize: '12.5px', color: '#92400e',
+              }}>
+                ✨ You can also edit and push your AI prompt directly from the <strong>AI Prompt</strong> page in the sidebar for a better editing experience.
+              </div>
+              <div>
+                <label className="input-label">System Prompt (Stored in Server)</label>
+                <textarea
+                  value={settings.systemPrompt}
+                  onChange={e => handleChange('systemPrompt', e.target.value)}
+                  placeholder="Enter your custom prompt for the calling agent..."
+                  className="input"
+                  rows={10}
+                  style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px', lineHeight: '1.6' }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Message */}
+        {message && (
+          <div className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`}
+            style={{ margin: '0 24px 16px', borderRadius: 'var(--radius-md)' }}>
+            {message.type === 'success' ? <Check size={15} /> : <AlertCircle size={15} />}
+            <span>{message.text}</span>
           </div>
+        )}
+
+        {/* Footer Buttons */}
+        <div style={{
+          padding: '16px 24px 20px',
+          borderTop: '1.5px solid var(--border-card)',
+          display: 'flex', gap: '10px',
+        }}>
+          <button
+            id="settings-save"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+          >
+            {isSaving ? (
+              <><Loader2 size={15} className="animate-spin" />Saving...</>
+            ) : (
+              <><Save size={15} />Save & Sync Settings</>
+            )}
+          </button>
+          <button
+            id="settings-cancel"
+            onClick={onClose}
+            className="btn btn-ghost"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>

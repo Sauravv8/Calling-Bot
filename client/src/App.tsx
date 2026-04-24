@@ -5,36 +5,45 @@ import ActiveCall from './components/ActiveCall';
 import Settings from './components/Settings';
 import ExcelUpload, { type UploadedLead } from './components/ExcelUpload';
 import GeneratedLeads, { type GeneratedLead } from './components/GeneratedLeads';
-import { Settings as SettingsIcon, Phone, Users, BarChart3, Home } from 'lucide-react';
+import PromptEditor from './components/PromptEditor';
+import {
+  Phone,
+  Users,
+  BarChart3,
+  Settings as SettingsIcon,
+  Sparkles,
+  LayoutDashboard,
+  PhoneCall,
+  TrendingUp,
+} from 'lucide-react';
 
 // Mock Data
 const MOCK_LEADS: Lead[] = [
-  { id: 1, name: 'John Doe', number: '+15551234567', status: 'New', score: 10 },
-  { id: 2, name: 'Alice Smith', number: '+15559876543', status: 'Called', score: 5 },
-  { id: 3, name: 'Bob Johnson', number: '+15551112222', status: 'Qualified', score: 20 },
-  { id: 4, name: 'Emma Wilson', number: '+15553334444', status: 'New', score: 12 },
-  { id: 5, name: 'Michael Brown', number: '+15555556666', status: 'Bad Number', score: 0 },
+  { id: 1, name: 'John Doe',       number: '+15551234567', status: 'New',       score: 10 },
+  { id: 2, name: 'Alice Smith',    number: '+15559876543', status: 'Called',    score: 5  },
+  { id: 3, name: 'Bob Johnson',    number: '+15551112222', status: 'Qualified', score: 20 },
+  { id: 4, name: 'Emma Wilson',    number: '+15553334444', status: 'New',       score: 12 },
+  { id: 5, name: 'Michael Brown',  number: '+15555556666', status: 'Bad Number',score: 0  },
 ];
 
-type ViewType = 'dialer' | 'call' | 'settings' | 'leads-generated' | 'excel-upload';
+type ViewType = 'dashboard' | 'dialer' | 'excel-upload' | 'leads-generated' | 'prompt';
 
 function App() {
-  const [currentView, setCurrentView] = useState<ViewType>('dialer');
-  const [activeNumber, setActiveNumber] = useState('');
-  const [activeLead, setActiveLead] = useState<Lead | null>(null);
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
-  const [generatedLeads, setGeneratedLeads] = useState<GeneratedLead[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
+  const [currentView, setCurrentView]         = useState<ViewType>('dashboard');
+  const [activeNumber, setActiveNumber]       = useState('');
+  const [activeLead, setActiveLead]           = useState<Lead | null>(null);
+  const [leads, setLeads]                     = useState<Lead[]>(MOCK_LEADS);
+  const [generatedLeads, setGeneratedLeads]   = useState<GeneratedLead[]>([]);
+  const [showSettings, setShowSettings]       = useState(false);
+  const [showCall, setShowCall]               = useState(false);
 
   const handleCall = (number: string) => {
-    console.log('Calling...', number);
     setActiveNumber(number);
-    setCurrentView('call');
+    setShowCall(true);
   };
 
   const handleHangup = () => {
-    console.log('Hanging up...');
-    setCurrentView('dialer');
+    setShowCall(false);
     setActiveNumber('');
     setActiveLead(null);
   };
@@ -47,7 +56,7 @@ function App() {
         number: activeLead.number,
         callDuration: 0,
         status: status as any,
-        notes: notes,
+        notes,
         callDate: new Date().toISOString(),
       };
       setGeneratedLeads(prev => [newLead, ...prev]);
@@ -74,246 +83,448 @@ function App() {
     setGeneratedLeads(prev => prev.filter(lead => lead.id !== id));
   };
 
-  const handleSettingsSave = () => {
-    setShowSettings(false);
+  // ---- Page Labels ----
+  const pageLabels: Record<ViewType, string> = {
+    dashboard:       'Dashboard',
+    dialer:          'Dialer',
+    'excel-upload':  'Import Leads',
+    'leads-generated': 'Call Analytics',
+    prompt:          'AI Prompt',
   };
 
-  const navItems = [
-    { id: 'dialer' as ViewType, label: 'Dialer', icon: Phone },
-    { id: 'excel-upload' as ViewType, label: 'Import Leads', icon: Users },
-    { id: 'leads-generated' as ViewType, label: 'Generated Leads', icon: BarChart3 },
-  ];
+  // ---- Stats ----
+  const totalCalls     = generatedLeads.length;
+  const activeCalls    = showCall ? 1 : 0;
+  const completedCalls = generatedLeads.filter(l => l.status !== 'Callback Later').length;
+  const qualified      = generatedLeads.filter(l => l.status === 'Qualified').length;
+  const conversionRate = totalCalls > 0 ? Math.round((qualified / totalCalls) * 100) : 0;
 
   return (
-    <div className="flex h-screen w-full text-slate-100 overflow-hidden bg-transparent">
-      {/* Sidebar - Desktop Optimized */}
-      <div className="w-72 bg-slate-900/60 backdrop-blur-xl border-r border-slate-800/50 flex flex-col z-20 shadow-2xl">
-        {/* Logo Section */}
-        <div className="p-8 border-b border-slate-800/50">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center font-bold text-white text-sm shadow-lg shadow-indigo-500/30">
-              CC
-            </div>
-            <div className="flex-1">
-              <h1 className="font-bold text-xl text-white tracking-tight">ColdCaller</h1>
-              <p className="text-xs text-indigo-400 font-medium">Pro Edition</p>
-            </div>
+    <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', background: 'var(--bg-page)' }}>
+
+      {/* ====== SIDEBAR ====== */}
+      <aside className="sidebar animate-slide">
+        {/* Logo */}
+        <div className="sidebar-logo">
+          <div className="logo-wordmark">
+            02<span>launch</span>
           </div>
-          <p className="text-xs text-slate-500 mt-1 pl-1">AI-Powered Calling</p>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>AI Cold Calling Suite</p>
         </div>
 
-        {/* Navigation Section */}
-        <nav className="flex-1 p-6 space-y-2">
-          <p className="text-xs uppercase font-bold text-slate-500 tracking-wider px-4 mb-6">Navigation</p>
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = currentView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setCurrentView(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative overflow-hidden ${isActive
-                  ? 'bg-indigo-500/10 text-indigo-400 font-semibold shadow-inner'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
-                  }`}
-              >
-                {isActive && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-r-full"></div>
-                )}
-                <Icon size={20} className={`transition-colors ${isActive ? 'text-indigo-400' : 'group-hover:text-indigo-300'}`} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+        {/* Navigation */}
+        <nav className="sidebar-nav">
+          <p className="nav-section-label">Main</p>
+
+          {/* Dashboard */}
+          <button
+            id="nav-dashboard"
+            onClick={() => setCurrentView('dashboard')}
+            className={`nav-item ${currentView === 'dashboard' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">
+              <LayoutDashboard size={15} />
+            </span>
+            Dashboard
+          </button>
+
+          {/* Dialer */}
+          <button
+            id="nav-dialer"
+            onClick={() => setCurrentView('dialer')}
+            className={`nav-item ${currentView === 'dialer' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">
+              <Phone size={15} />
+            </span>
+            Dialer
+          </button>
+
+          <p className="nav-section-label">Leads</p>
+
+          {/* Import Leads */}
+          <button
+            id="nav-import"
+            onClick={() => setCurrentView('excel-upload')}
+            className={`nav-item ${currentView === 'excel-upload' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">
+              <Users size={15} />
+            </span>
+            Import Leads
+          </button>
+
+          {/* Analytics */}
+          <button
+            id="nav-analytics"
+            onClick={() => setCurrentView('leads-generated')}
+            className={`nav-item ${currentView === 'leads-generated' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">
+              <BarChart3 size={15} />
+            </span>
+            Call Analytics
+          </button>
+
+          <p className="nav-section-label">AI</p>
+
+          {/* Prompt Editor */}
+          <button
+            id="nav-prompt"
+            onClick={() => setCurrentView('prompt')}
+            className={`nav-item ${currentView === 'prompt' ? 'active' : ''}`}
+          >
+            <span className="nav-icon">
+              <Sparkles size={15} />
+            </span>
+            AI Prompt
+          </button>
         </nav>
 
-        {/* Divider */}
-        <div className="px-6 py-4 border-t border-slate-800/50">
+        {/* Footer */}
+        <div className="sidebar-footer">
           <button
+            id="nav-settings"
             onClick={() => setShowSettings(true)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-all"
+            className="nav-item"
+            style={{ marginBottom: '4px' }}
           >
-            <SettingsIcon size={20} />
-            <span className="font-semibold">Settings</span>
+            <span className="nav-icon">
+              <SettingsIcon size={15} />
+            </span>
+            Settings
           </button>
-          <button
-            onClick={() => alert('Help & Documentation')}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition-all mt-1"
-          >
-            <Home size={20} />
-            <span className="font-semibold">Help</span>
-          </button>
+
+          {/* Status */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 12px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--sidebar-active-bg)',
+            marginTop: '8px'
+          }}>
+            <span className={`status-dot ${showCall ? 'status-dot-yellow' : 'status-dot-green'}`}
+              style={{ animation: showCall ? 'pulse-ring 1.5s ease-out infinite' : 'none' }}
+            />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              {showCall ? 'Call Active' : 'System Ready'}
+            </span>
+          </div>
         </div>
+      </aside>
 
-        {/* Status Bar */}
-        <div className="px-6 py-6 border-t border-slate-800/50">
-          <div className="flex items-center gap-2 bg-slate-800/40 rounded-lg px-3 py-2 mb-2 border border-slate-700/30">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-xs text-slate-300">Online & Ready</span>
-          </div>
-          <p className="text-xs text-slate-500 text-center">v1.0.0</p>
-        </div>
-      </div>
+      {/* ====== MAIN AREA ====== */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Desktop Header */}
-        <header className="h-20 border-b border-slate-800/30 flex items-center justify-between px-8 z-10 backdrop-blur-sm">
-          <div className="flex items-center gap-4 flex-1">
-            <h2 className="text-3xl font-bold text-white tracking-tight animate-in">
-              {navItems.find(item => item.id === currentView)?.label || 'Dashboard'}
-            </h2>
-            <div className="hidden md:flex items-center gap-2 ml-auto">
-              <div className="h-8 w-px bg-slate-800"></div>
-              <span className="text-sm text-slate-400">
-                {currentView === 'dialer' && `${leads.length} Leads in Queue`}
-                {currentView === 'leads-generated' && `${generatedLeads.length} Generated Leads`}
-                {currentView === 'excel-upload' && 'Import Your Leads'}
-                {currentView === 'call' && <span className="text-indigo-400 font-medium animate-pulse">● Live Call</span>}
-              </span>
-            </div>
-          </div>
+        {/* Top Bar */}
+        <header className="topbar">
+          <h1 className="topbar-title">{pageLabels[currentView]}</h1>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-slate-800/40 rounded-full px-4 py-2 border border-slate-700/30 hidden sm:flex">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-              <span className="text-xs text-slate-300 font-medium">System Optimal</span>
-            </div>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-2.5 hover:bg-slate-700/50 rounded-xl transition-all hover:scale-105 active:scale-95"
-              title="Settings"
-            >
-              <SettingsIcon size={22} className="text-slate-400 hover:text-indigo-400" />
-            </button>
-          </div>
-        </header>
-
-        {/* Main Content with Two-Column Layout for Dialer */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left Panel - Lead Queue (Desktop) */}
-          {currentView === 'dialer' && (
-            <div className="w-96 border-r border-slate-800/30 bg-slate-900/30 backdrop-blur-md p-6 overflow-y-auto custom-scrollbar flex flex-col hidden lg:flex animate-slide-in">
-              <div className="flex items-center gap-3 mb-6 p-4 glass-panel rounded-xl">
-                <div className="p-2 bg-indigo-500/20 rounded-lg">
-                  <Phone size={20} className="text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Call Queue</h3>
-                  <p className="text-xs text-slate-400">{leads.length} available leads</p>
-                </div>
-              </div>
-              <LeadList leads={leads} onSelectLead={handleLeadSelect} />
+          {/* Live call pill */}
+          {showCall && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '7px',
+              padding: '5px 14px', borderRadius: 'var(--radius-full)',
+              background: '#fff7ed', border: '1.5px solid #fed7aa',
+              fontSize: '12px', fontWeight: 700, color: '#c2410c',
+            }}>
+              <PhoneCall size={13} />
+              Live Call
             </div>
           )}
 
-          {/* Center Content Area */}
-          <div className="flex-1 flex flex-col relative overflow-hidden">
+          {/* Stats chips */}
+          <div style={{ display: 'flex', gap: '8px', marginLeft: '8px' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '5px 12px', borderRadius: 'var(--radius-full)',
+              background: 'var(--accent-primary-light)', border: '1.5px solid var(--purple-200)',
+              fontSize: '12px', fontWeight: 600, color: 'var(--accent-primary)'
+            }}>
+              <Users size={12} />
+              {leads.length} Leads
+            </div>
+            {totalCalls > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '5px 12px', borderRadius: 'var(--radius-full)',
+                background: '#ecfdf5', border: '1.5px solid #a7f3d0',
+                fontSize: '12px', fontWeight: 600, color: '#065f46'
+              }}>
+                <TrendingUp size={12} />
+                {conversionRate}% CVR
+              </div>
+            )}
+          </div>
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10 overflow-y-auto custom-scrollbar">
-              {currentView === 'dialer' && (
-                <div className="w-full max-w-4xl animate-in">
-                  <div className="text-center mb-10">
-                    <h2 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-4 tracking-tight">
-                      Start Calling
-                    </h2>
-                    <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-                      {leads.length > 0
-                        ? `You have ${leads.length} leads ready in your queue. Select a lead or dial manually to begin.`
-                        : 'Import leads to get started with your high-velocity calling campaign.'}
+          {/* Settings button */}
+          <button
+            id="topbar-settings"
+            onClick={() => setShowSettings(true)}
+            style={{
+              width: '36px', height: '36px', borderRadius: 'var(--radius-md)',
+              border: '1.5px solid var(--border-card)', background: 'white',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'var(--text-muted)',
+              transition: 'all 0.15s ease', marginLeft: '8px'
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent-primary)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent-primary)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-card)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)';
+            }}
+            title="Settings"
+          >
+            <SettingsIcon size={17} />
+          </button>
+        </header>
+
+        {/* ====== PAGE CONTENT ====== */}
+        <main className="page-content custom-scrollbar">
+
+          {/* ---- DASHBOARD ---- */}
+          {currentView === 'dashboard' && (
+            <div className="animate-in">
+              {/* Stat Cards Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ background: '#ede9fe' }}>
+                    <Phone size={22} style={{ color: 'var(--accent-primary)' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Calls</p>
+                    <p style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-primary)', fontFamily: 'var(--font-display)', lineHeight: 1 }}>
+                      {totalCalls}
                     </p>
                   </div>
+                </div>
 
-                  {/* Dialer + Quick Stats */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-                    <div className="flex justify-center lg:justify-end">
-                      <Dialer onCall={handleCall} />
-                    </div>
-                    <div className="space-y-4 pt-4">
-                      <div className="card hover:scale-102 transition-transform cursor-default">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-slate-400 text-sm font-medium">Total Leads</p>
-                          <Users size={16} className="text-indigo-500/50" />
-                        </div>
-                        <p className="text-3xl font-bold text-white">{leads.length}</p>
-                      </div>
-                      <div className="card hover:scale-102 transition-transform cursor-default">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-slate-400 text-sm font-medium">Calls Completed</p>
-                          <Phone size={16} className="text-indigo-500/50" />
-                        </div>
-                        <p className="text-3xl font-bold text-white">{generatedLeads.length}</p>
-                      </div>
-                      <div className="card hover:scale-102 transition-transform cursor-default">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-slate-400 text-sm font-medium">Conversion Rate</p>
-                          <BarChart3 size={16} className="text-emerald-500/50" />
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-3xl font-bold text-emerald-400">
-                            {generatedLeads.length === 0 ? '0' : Math.round((generatedLeads.filter(l => l.status === 'Qualified').length / generatedLeads.length) * 100)}%
-                          </p>
-                          <span className="text-xs text-slate-500">Target: 15%</span>
-                        </div>
-                      </div>
-                    </div>
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ background: '#fff7ed' }}>
+                    <PhoneCall size={22} style={{ color: '#c2410c' }} />
                   </div>
-                </div>
-              )}
-
-              {currentView === 'call' && (
-                <div className="w-full max-w-2xl animate-scale-in">
-                  <ActiveCall
-                    number={activeNumber}
-                    name={activeLead?.name}
-                    onHangup={handleHangup}
-                    onSaveNotes={handleSaveCallNotes}
-                  />
-                </div>
-              )}
-
-              {currentView === 'excel-upload' && (
-                <div className="w-full max-w-3xl animate-in">
-                  <div className="text-center mb-12">
-                    <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                      <Users size={32} className="text-indigo-400" />
-                    </div>
-                    <h2 className="text-4xl font-bold text-white mb-3">
-                      Import Leads
-                    </h2>
-                    <p className="text-slate-400 text-lg">
-                      Upload an Excel or CSV file to supercharge your pipeline
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Active Calls</p>
+                    <p style={{ fontSize: '28px', fontWeight: 800, color: '#c2410c', fontFamily: 'var(--font-display)', lineHeight: 1 }}>
+                      {activeCalls}
                     </p>
                   </div>
-                  <ExcelUpload onLeadsLoaded={handleLeadsLoaded} />
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ background: '#ecfdf5' }}>
+                    <BarChart3 size={22} style={{ color: '#059669' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Completed</p>
+                    <p style={{ fontSize: '28px', fontWeight: 800, color: '#059669', fontFamily: 'var(--font-display)', lineHeight: 1 }}>
+                      {completedCalls}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon" style={{ background: '#eff6ff' }}>
+                    <TrendingUp size={22} style={{ color: '#2563eb' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Conversion</p>
+                    <p style={{ fontSize: '28px', fontWeight: 800, color: '#2563eb', fontFamily: 'var(--font-display)', lineHeight: 1 }}>
+                      {conversionRate}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Available Agents */}
+              <div className="section-card mb-6">
+                <div className="section-header">
+                  <h2 className="section-title">Available Agents</h2>
+                </div>
+                <div className="section-body" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                  <div className="agent-card" onClick={() => setCurrentView('dialer')} id="agent-card-dialer">
+                    <div className="agent-card-icon">🤖</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-primary)', marginBottom: '2px' }}>
+                        Cold Calling Agent
+                      </h3>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        AI-powered autonomous calling via ElevenLabs
+                      </p>
+                      <span className="badge badge-purple">ElevenLabs AI</span>
+                    </div>
+                    <div style={{ color: 'var(--purple-400)', fontSize: '18px' }}>→</div>
+                  </div>
+
+                  <div className="agent-card" onClick={() => setCurrentView('prompt')} id="agent-card-prompt">
+                    <div className="agent-card-icon">✨</div>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent-primary)', marginBottom: '2px' }}>
+                        Customize AI Prompt
+                      </h3>
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Edit and push custom prompts to your agent
+                      </p>
+                      <span className="badge badge-gray">Configure</span>
+                    </div>
+                    <div style={{ color: 'var(--purple-400)', fontSize: '18px' }}>→</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Call History (recent generated leads) */}
+              {generatedLeads.length > 0 && (
+                <div className="section-card">
+                  <div className="section-header">
+                    <h2 className="section-title">Recent Call History</h2>
+                    <button className="btn btn-secondary" onClick={() => setCurrentView('leads-generated')} style={{ fontSize: '12px', padding: '6px 14px' }}>
+                      View All
+                    </button>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Phone</th>
+                          <th>Status</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {generatedLeads.slice(0, 5).map(lead => (
+                          <tr key={lead.id}>
+                            <td style={{ fontWeight: 600 }}>{lead.name}</td>
+                            <td style={{ color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '12px' }}>{lead.number}</td>
+                            <td>
+                              <span className={`badge ${
+                                lead.status === 'Qualified'     ? 'badge-success' :
+                                lead.status === 'Not Interested'? 'badge-danger'  :
+                                lead.status === 'Callback Later'? 'badge-warning' : 'badge-gray'
+                              }`}>{lead.status}</span>
+                            </td>
+                            <td style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                              {new Date(lead.callDate).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
 
-              {currentView === 'leads-generated' && (
-                <div className="w-full h-full max-w-6xl animate-in">
-                  <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-white mb-2">
-                      Call Analytics
-                    </h2>
-                    <p className="text-slate-400">Review results and qualified leads</p>
-                  </div>
-                  <GeneratedLeads
-                    leads={generatedLeads}
-                    onDeleteLead={handleDeleteGeneratedLead}
-                  />
+              {generatedLeads.length === 0 && (
+                <div className="section-card" style={{ textAlign: 'center', padding: '48px' }}>
+                  <Phone size={40} style={{ color: 'var(--purple-300)', margin: '0 auto 12px' }} />
+                  <h3 style={{ color: 'var(--text-secondary)', marginBottom: '6px' }}>No Call History Yet</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
+                    Make calls using the Dialer to see your call history here.
+                  </p>
+                  <button className="btn btn-primary" onClick={() => setCurrentView('dialer')}>
+                    <Phone size={15} /> Go to Dialer
+                  </button>
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          )}
+
+          {/* ---- DIALER VIEW ---- */}
+          {currentView === 'dialer' && (
+            <div className="animate-in" style={{ display: 'flex', gap: '24px', height: '100%' }}>
+              {/* Lead Queue Panel */}
+              <div style={{
+                width: '320px', minWidth: '320px',
+                background: 'var(--bg-card)',
+                border: '1.5px solid var(--border-card)',
+                borderRadius: 'var(--radius-xl)',
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden', height: 'fit-content',
+                maxHeight: 'calc(100vh - 130px)'
+              }}>
+                <div className="section-header">
+                  <h2 className="section-title">Call Queue</h2>
+                  <span className="badge badge-purple">{leads.length} leads</span>
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden', padding: '16px' }}>
+                  <LeadList leads={leads} onSelectLead={handleLeadSelect} />
+                </div>
+              </div>
+
+              {/* Dialer Panel */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '24px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                  <h2 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--accent-primary)', fontFamily: 'var(--font-display)', marginBottom: '8px' }}>
+                    Start Calling
+                  </h2>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                    Select a lead from the queue or dial manually
+                  </p>
+                </div>
+                <Dialer onCall={handleCall} />
+              </div>
+            </div>
+          )}
+
+          {/* ---- IMPORT LEADS ---- */}
+          {currentView === 'excel-upload' && (
+            <div className="animate-in" style={{ maxWidth: '700px', margin: '0 auto' }}>
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <div style={{
+                  width: '56px', height: '56px', borderRadius: 'var(--radius-xl)',
+                  background: 'var(--accent-primary-light)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  margin: '0 auto 16px'
+                }}>
+                  <Users size={26} style={{ color: 'var(--accent-primary)' }} />
+                </div>
+                <h2 style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: '8px' }}>
+                  Import Leads
+                </h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                  Upload an Excel or CSV file to add leads to your pipeline
+                </p>
+              </div>
+              <ExcelUpload onLeadsLoaded={handleLeadsLoaded} />
+            </div>
+          )}
+
+          {/* ---- CALL ANALYTICS ---- */}
+          {currentView === 'leads-generated' && (
+            <div className="animate-in">
+              <GeneratedLeads leads={generatedLeads} onDeleteLead={handleDeleteGeneratedLead} />
+            </div>
+          )}
+
+          {/* ---- AI PROMPT ---- */}
+          {currentView === 'prompt' && (
+            <PromptEditor />
+          )}
+
+        </main>
       </div>
 
-      {/* Settings Modal */}
+      {/* ====== ACTIVE CALL OVERLAY ====== */}
+      {showCall && (
+        <ActiveCall
+          number={activeNumber}
+          name={activeLead?.name}
+          onHangup={handleHangup}
+          onSaveNotes={handleSaveCallNotes}
+        />
+      )}
+
+      {/* ====== SETTINGS MODAL ====== */}
       {showSettings && (
         <Settings
           onClose={() => setShowSettings(false)}
-          onSave={handleSettingsSave}
+          onSave={() => setShowSettings(false)}
         />
       )}
     </div>

@@ -142,6 +142,116 @@ app.get('/settings', (req, res) => {
   });
 });
 
+// Update ElevenLabs Agent Prompt (Live)
+app.post('/elevenlabs/update-prompt', async (req, res) => {
+  const { prompt } = req.body;
+
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid prompt field.' });
+  }
+
+  const apiKey  = userSettings.elevenLabsApiKey;
+  const agentId = userSettings.elevenLabsAgentId;
+
+  if (!apiKey || !agentId) {
+    return res.status(400).json({
+      error: 'ElevenLabs API Key and Agent ID must be configured in Settings first.'
+    });
+  }
+
+  try {
+    const https = require('https');
+
+    const payload = JSON.stringify({
+      conversation_config: {
+        agent: {
+          prompt: {
+            prompt: prompt
+          }
+        }
+      }
+    });
+
+    const options = {
+      hostname: 'api.elevenlabs.io',
+      path: `/v1/convai/agents/${agentId}`,
+      method: 'PATCH',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      }
+    };
+
+    const elReq = https.request(options, (elRes) => {
+      let data = '';
+      elRes.on('data', chunk => { data += chunk; });
+      elRes.on('end', () => {
+        if (elRes.statusCode >= 200 && elRes.statusCode < 300) {
+          // Also update server-side memory
+          userSettings.systemPrompt = prompt;
+          console.log(`[ElevenLabs] Agent prompt updated successfully. Agent: ${agentId}`);
+          res.json({ success: true, message: 'ElevenLabs agent prompt updated successfully.' });
+        } else {
+          console.error(`[ElevenLabs] API error: ${elRes.statusCode} - ${data}`);
+          res.status(elRes.statusCode).json({
+            error: `ElevenLabs API error: ${elRes.statusCode}`,
+            details: data
+          });
+        }
+      });
+    });
+
+    elReq.on('error', (err) => {
+      console.error('[ElevenLabs] Request failed:', err);
+      res.status(500).json({ error: err.message });
+    });
+
+    elReq.write(payload);
+    elReq.end();
+
+  } catch (err) {
+    console.error('[ElevenLabs] update-prompt error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get ElevenLabs Agent Info
+app.get('/elevenlabs/agent', async (req, res) => {
+  const apiKey  = userSettings.elevenLabsApiKey;
+  const agentId = userSettings.elevenLabsAgentId;
+
+  if (!apiKey || !agentId) {
+    return res.status(400).json({ error: 'ElevenLabs credentials not configured.' });
+  }
+
+  try {
+    const https = require('https');
+    const options = {
+      hostname: 'api.elevenlabs.io',
+      path: `/v1/convai/agents/${agentId}`,
+      method: 'GET',
+      headers: { 'xi-api-key': apiKey }
+    };
+
+    const elReq = https.request(options, (elRes) => {
+      let data = '';
+      elRes.on('data', chunk => { data += chunk; });
+      elRes.on('end', () => {
+        if (elRes.statusCode === 200) {
+          res.json(JSON.parse(data));
+        } else {
+          res.status(elRes.statusCode).json({ error: `ElevenLabs API: ${elRes.statusCode}` });
+        }
+      });
+    });
+    elReq.on('error', err => res.status(500).json({ error: err.message }));
+    elReq.end();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- ELEVENLABS AI VOICE SECTION ---
 
 const WebSocket = require('ws');
@@ -202,9 +312,10 @@ wss.on('connection', (ws, req) => {
     const ELEVENLABS_AGENT_ID = userSettings.elevenLabsAgentId;
 
     console.log(`[ElevenLabs] Connecting with Agent ID: ${ELEVENLABS_AGENT_ID}`);
+    // console.log(`[ElevenLabs] API Key used: ${ELEVENLABS_API_KEY ? '***' + ELEVENLABS_API_KEY.slice(-4) : 'MISSING'}`);
 
     if (!ELEVENLABS_API_KEY || !ELEVENLABS_AGENT_ID) {
-      console.error('[Configuration Error] Missing ElevenLabs credentials');
+      console.error('[Configuration Error] Missing ElevenLabs credentials. Check .env or Settings.');
       return;
     }
 
@@ -225,16 +336,13 @@ wss.on('connection', (ws, req) => {
     elevenLabsWs.on('open', () => {
       console.log('[ElevenLabs] Connected to Conversational AI');
 
-      // Send initial configuration
-      // PCC: Sanitize prompt to ensure newlines are treated correctly
-      const rawPrompt = userSettings.systemPrompt || process.env.SYSTEM_PROMPT || "You are a helpful assistant.";
-      const sanitizedPrompt = rawPrompt.replace(/\\n/g, '\n');
-
+      // Send initial configuration (using agent settings from ElevenLabs dashboard)
+      // PCC: Force "Jessica" voice to resolve partial publish/sync issues
       const initialConfig = {
         type: "conversation_initiation_client_data"
       };
 
-      console.log('[ElevenLabs] Sending initial config...');
+      console.log('[ElevenLabs] Sending initial config (using dashboard agent configuration)...');
       elevenLabsWs.send(JSON.stringify(initialConfig));
 
       // Do NOT flush audio here. Wait for metadata event.

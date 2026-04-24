@@ -1,0 +1,34 @@
+{
+  "agents": [
+    {
+      "agent_id": "agent_0701kd895j37ehf97fm36ehjhv6s",
+      "name": "Ether",
+      "tags": [],
+      "created_at_unix_secs": 1766583356,
+      "access_info": {
+        "is_creator": true,
+        "creator_name": "Lord Lord",
+        "creator_email": "lordzz0012@gmail.com",
+        "role": "admin"
+      },
+      "last_call_time_unix_secs": 1766664707,
+      "archived": false
+    },
+    {
+      "agent_id": "agent_1801kcxap5ebe4qtk3ddz5v8xwem",
+      "name": "Ether",
+      "tags": [],
+      "created_at_unix_secs": 1766215849,
+      "access_info": {
+        "is_creator": true,
+        "creator_name": "Lord Lord",
+        "creator_email": "lordzz0012@gmail.com",
+        "role": "admin"
+      },
+      "last_call_time_unix_secs": 1766934374,
+      "archived": false
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}

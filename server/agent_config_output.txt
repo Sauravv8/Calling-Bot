@@ -1,0 +1,3 @@
+Name: Ether
+Voice ID: cjVigY5qzO86Huf0OWal
+Model: eleven_turbo_v2

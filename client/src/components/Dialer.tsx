@@ -1,118 +1,192 @@
 import React, { useState } from 'react';
-import { Phone, Delete } from 'lucide-react';
+import { Phone, Delete, ChevronDown } from 'lucide-react';
 
 interface DialerProps {
-    onCall: (number: string) => void;
+  onCall: (number: string) => void;
 }
 
+const COUNTRY_CODES = [
+  { code: '+1',  country: 'US 🇺🇸' },
+  { code: '+91', country: 'IN 🇮🇳' },
+  { code: '+44', country: 'UK 🇬🇧' },
+  { code: '+61', country: 'AU 🇦🇺' },
+  { code: '+81', country: 'JP 🇯🇵' },
+  { code: '+971',country: 'AE 🇦🇪' },
+  { code: '+65', country: 'SG 🇸🇬' },
+];
+
+const PADS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+
 const Dialer: React.FC<DialerProps> = ({ onCall }) => {
-    const [number, setNumber] = useState('');
+  const [number, setNumber]           = useState('');
+  const [countryCode, setCountryCode] = useState('+1');
+  const [showCC, setShowCC]           = useState(false);
 
-    const handleNumClick = (num: string) => {
-        setNumber(prev => prev + num);
-    };
+  const handleNumClick = (num: string) => setNumber(prev => prev + num);
+  const handleDelete   = () => setNumber(prev => prev.slice(0, -1));
+  const handleClear    = () => setNumber('');
+  const handleCall     = () => {
+    if (!number.trim()) return;
+    const clean = number.startsWith('0') ? number.slice(1) : number;
+    onCall(`${countryCode}${clean}`);
+  };
 
-    const handleDelete = () => {
-        setNumber(prev => prev.slice(0, -1));
-    };
+  return (
+    <div style={{ width: '300px', display: 'flex', flexDirection: 'column', gap: '0' }}>
 
-    const handleClear = () => {
-        setNumber('');
-    };
-
-    // Define common country codes
-    const countryCodes = [
-        { code: '+1', country: 'US' },
-        { code: '+91', country: 'IN' },
-        { code: '+44', country: 'UK' },
-        { code: '+61', country: 'AU' },
-        { code: '+81', country: 'JP' },
-    ];
-    const [countryCode, setCountryCode] = useState('+1');
-
-    const handleCall = () => {
-        if (number.trim()) {
-            // Remove leading zero if present when using country code
-            const cleanNumber = number.startsWith('0') ? number.slice(1) : number;
-            onCall(`${countryCode}${cleanNumber}`);
-        }
-    };
-
-    const pads = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
-
-    return (
-        <div className="w-full max-w-sm flex flex-col items-center">
-            {/* Display Screen using standard rounded styling */}
-            <div className="mb-6 w-full bg-slate-900/50 p-6 rounded-3xl border border-slate-800/50 backdrop-blur-sm shadow-inner">
-                <div className="text-center mb-4">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                        <select
-                            value={countryCode}
-                            onChange={(e) => setCountryCode(e.target.value)}
-                            className="bg-transparent text-slate-400 font-medium text-xl outline-none cursor-pointer hover:text-white transition-colors appearance-none text-right"
-                            style={{ direction: 'rtl' }}
-                        >
-                            {countryCodes.map(c => (
-                                <option key={c.code} value={c.code} className="bg-slate-900 text-left">
-                                    {c.code}
-                                </option>
-                            ))}
-                        </select>
-                        <span className="text-4xl font-bold text-white tracking-widest font-mono min-h-[48px] flex items-center">
-                            {number || <span className="text-slate-700 text-3xl">...</span>}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Control Actions Row (Clear/Delete) */}
-                <div className="flex justify-between items-center px-4">
-                    <button
-                        onClick={handleClear}
-                        disabled={!number}
-                        className={`text-xs font-bold uppercase tracking-wider transition-colors ${number ? 'text-slate-500 hover:text-white cursor-pointer' : 'text-slate-800 cursor-default'}`}
-                    >
-                        Clear
-                    </button>
-                    <button
-                        onClick={handleDelete}
-                        disabled={!number}
-                        className={`transition-colors ${number ? 'text-slate-500 hover:text-red-400 cursor-pointer' : 'text-slate-800 cursor-default'}`}
-                    >
-                        <Delete size={22} />
-                    </button>
-                </div>
+      {/* Display */}
+      <div style={{
+        background: 'white',
+        border: '1.5px solid var(--border-card)',
+        borderRadius: 'var(--radius-xl)',
+        padding: '20px 24px',
+        marginBottom: '16px',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
+        {/* Country Code Selector */}
+        <div style={{ position: 'relative', marginBottom: '10px' }}>
+          <button
+            id="country-code-btn"
+            onClick={() => setShowCC(!showCC)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '5px 10px', borderRadius: 'var(--radius-md)',
+              background: 'var(--accent-primary-light)',
+              border: '1.5px solid var(--purple-200)',
+              color: 'var(--accent-primary)',
+              fontSize: '13px', fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {countryCode}
+            <ChevronDown size={12} />
+          </button>
+          {showCC && (
+            <div style={{
+              position: 'absolute', top: '110%', left: 0, zIndex: 50,
+              background: 'white', borderRadius: 'var(--radius-lg)',
+              border: '1.5px solid var(--border-card)',
+              boxShadow: 'var(--shadow-lg)',
+              overflow: 'hidden', minWidth: '160px',
+            }}>
+              {COUNTRY_CODES.map(c => (
+                <button
+                  key={c.code}
+                  onClick={() => { setCountryCode(c.code); setShowCC(false); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    width: '100%', padding: '9px 14px',
+                    background: countryCode === c.code ? 'var(--accent-primary-light)' : 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    color: 'var(--text-primary)', fontSize: '13px', fontWeight: 500,
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{c.code}</span>
+                  <span>{c.country}</span>
+                </button>
+              ))}
             </div>
-
-            {/* Keypad: Explicit Block Design */}
-            <div className="grid grid-cols-3 gap-4 mb-8 w-full">
-                {pads.map(pad => (
-                    <button
-                        key={pad}
-                        onClick={() => handleNumClick(pad)}
-                        className="w-full aspect-square rounded-2xl bg-slate-800 hover:bg-slate-700 border-b-4 border-slate-950 hover:border-slate-800
-                         active:border-b-0 active:translate-y-1
-                         text-3xl font-bold text-white transition-all flex items-center justify-center
-                         cursor-pointer shadow-lg group relative"
-                    >
-                        <span className="relative z-10">{pad}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Call Button - Full Width Block */}
-            <button
-                onClick={handleCall}
-                disabled={!number.trim()}
-                className={`w-full h-16 rounded-2xl flex items-center justify-center gap-3 shadow-xl transition-all duration-200 transform border-b-4 active:border-b-0 active:translate-y-1 ${number.trim()
-                    ? 'bg-emerald-600 hover:bg-emerald-500 border-emerald-800 text-white cursor-pointer'
-                    : 'bg-slate-800 text-slate-600 border-slate-900 cursor-not-allowed'
-                    }`}
-            >
-                <Phone size={28} fill="currentColor" />
-                <span className="font-bold text-xl">Call</span>
-            </button>
+          )}
         </div>
-    );
+
+        {/* Number Display */}
+        <div style={{
+          fontSize: '32px', fontWeight: 800,
+          color: number ? 'var(--text-primary)' : 'var(--text-placeholder)',
+          letterSpacing: '0.06em',
+          fontFamily: 'var(--font-display)',
+          minHeight: '48px',
+          display: 'flex', alignItems: 'center',
+        }}>
+          {number || '···'}
+        </div>
+
+        {/* Clear / Backspace */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+          <button
+            onClick={handleClear}
+            disabled={!number}
+            style={{
+              fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+              letterSpacing: '0.05em', border: 'none', background: 'transparent',
+              cursor: number ? 'pointer' : 'default',
+              color: number ? 'var(--text-muted)' : 'var(--text-placeholder)',
+            }}
+          >
+            Clear
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={!number}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', background: 'transparent',
+              cursor: number ? 'pointer' : 'default',
+              color: number ? 'var(--text-muted)' : 'var(--text-placeholder)',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => { if (number) (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent-danger)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'; }}
+          >
+            <Delete size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Keypad */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px',
+        marginBottom: '16px',
+      }}>
+        {PADS.map(pad => (
+          <button
+            key={pad}
+            id={`keypad-${pad}`}
+            onClick={() => handleNumClick(pad)}
+            className="keypad-btn"
+          >
+            {pad}
+          </button>
+        ))}
+      </div>
+
+      {/* Call Button */}
+      <button
+        id="call-button"
+        onClick={handleCall}
+        disabled={!number.trim()}
+        style={{
+          width: '100%',
+          padding: '16px',
+          borderRadius: 'var(--radius-xl)',
+          background: number.trim() ? 'var(--accent-primary)' : '#e5e7eb',
+          border: 'none',
+          color: number.trim() ? 'white' : '#9ca3af',
+          fontSize: '16px',
+          fontWeight: 700,
+          fontFamily: 'var(--font-display)',
+          cursor: number.trim() ? 'pointer' : 'not-allowed',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+          boxShadow: number.trim() ? 'var(--shadow-purple)' : 'none',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseEnter={e => {
+          if (number.trim()) {
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-primary-hover)';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)';
+          }
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLButtonElement).style.background = number.trim() ? 'var(--accent-primary)' : '#e5e7eb';
+          (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+        }}
+      >
+        <Phone size={20} fill={number.trim() ? 'white' : '#9ca3af'} />
+        Call
+      </button>
+    </div>
+  );
 };
 
 export default Dialer;
